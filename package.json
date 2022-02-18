@@ -1,8 +1,8 @@
 {
-  "name": "tanger-med-managment-node-tsc",
+  "name": "typescript-node-template",
   "version": "1.0.0",
   "main": "dist/app.js",
-  "repository": "git@github.com:othmanekahtal/tanger-med-managment-node-tsc.git",
+  "repository": "git@github.com:othmanekahtal/node-ts-template.git",
   "author": "othmane <othmanekahtal@gmail.com>",
   "license": "MIT",
   "_moduleAliases": {
@@ -11,12 +11,14 @@
     "@services": "./dist/services",
     "@models": "./dist/models",
     "@controllers": "./dist/controllers",
-    "@schemas": "./dist/schemas/",
-    "@entities": "./dist/entities/",
-    "@dto": "./dist/dto/"
+    "@schemas": "./dist/schemas",
+    "@entities": "./dist/entities",
+    "@dto": "./dist/dto",
+    "@interfaces": "./dist/interfaces"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
     "dotenv": "^14.2.0",
     "express": "^4.17.2",
     "express-mongo-sanitize": "^2.2.0",
@@ -33,11 +35,25 @@
     "xss-clean": "^0.1.1"
   },
   "scripts": {
-    "dev": "tsc & nodemon ./dist/app.js",
-    "lint": "eslint . --ext .ts"
+    "test:watch": "jest --watchAll",
+    "dev": "tsc --watch & nodemon ./dist/app.js",
+    "start": "node dist/app.js",
+    "lint": "eslint . --ext .ts",
+    "prepare": "husky install",
+    "check-types": "tsc --pretty --noEmit",
+    "check-lint": "eslint . --ext ts --ext tsx --ext js",
+    "prettier-write": "prettier --write .",
+    "check-format": "prettier --check .",
+    "test": "yarn jest && yarn run prettier-write && yarn run check-format && yarn run check-lint && yarn run check-types ",
+    "build": "tsc --project tsconfig.json",
+    "production": "yarn build && yarn start"
   },
   "devDependencies": {
+    "jest": "^27.5.1",
+    "ts-jest": "^27.1.3",
+    "@types/jest": "^27.4.0",
     "@types/bcryptjs": "^2.4.2",
+    "@types/cookie-parser": "^1.4.2",
     "@types/express": "^4.17.13",
     "@types/hpp": "^0.2.2",
     "@types/jsonwebtoken": "^8.5.8",
@@ -46,11 +62,15 @@
     "@types/node": "^17.0.14",
     "@types/nodemailer": "^6.4.4",
     "@types/validator": "^13.7.1",
-    "@typescript-eslint/eslint-plugin": "^5.10.2",
-    "@typescript-eslint/parser": "^5.10.2",
-    "eslint": "^8.8.0",
+    "@typescript-eslint/eslint-plugin": "^5.11.0",
+    "@typescript-eslint/parser": "^5.11.0",
+    "eslint": "^8.9.0",
+    "eslint-config-google": "^0.14.0",
+    "husky": "^7.0.0",
+    "lint-staged": "^12.3.4",
     "ndb": "^1.1.5",
     "nodemon": "^2.0.15",
+    "prettier": "^2.5.1",
     "typescript": "^4.5.5"
   }
 }

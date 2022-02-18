@@ -1,6 +1,8 @@
+import {ErrorHttpDefinition} from '@interfaces/ErrorHttpDefinition'
 import ErrorHandler from '@utils/errorHandler'
-import {Response, Request, NextFunction} from 'express'
-const errorDev = (error: ErrorHttp, res: Response) => {
+import {NextFunction, Request, Response} from 'express'
+
+const errorDev = (error: ErrorHttpDefinition, res: Response) => {
   console.log(error)
   res.status(error.statusCode).json({
     status: error.status,
@@ -10,7 +12,7 @@ const errorDev = (error: ErrorHttp, res: Response) => {
   })
 }
 
-const errorProd = (error: ErrorHttp, res: Response) =>
+const errorProd = (error: ErrorHttpDefinition, res: Response) =>
   error.isOperational
     ? res.status(error.statusCode).json({
         status: error.status,
@@ -23,16 +25,16 @@ const errorProd = (error: ErrorHttp, res: Response) =>
 
 export default (
   error: ErrorHandler,
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction,
+  _next: NextFunction,
 ) => {
   error.statusCode ||= 500
   error.status ||= 'error'
   if (process.env.NODE_ENV === 'development') {
     errorDev(error, res)
   } else if (process.env.NODE_ENV === 'production') {
-    let err: ErrorHttp = {
+    let err: ErrorHttpDefinition = {
       ...error,
       name: error.name,
       message: error.message,

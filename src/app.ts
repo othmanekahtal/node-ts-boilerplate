@@ -1,4 +1,4 @@
-require('module-alias/register')
+import 'module-alias/register'
 import dotenv from 'dotenv'
 import mongoose from 'mongoose'
 import server from './server'
@@ -17,7 +17,7 @@ const database = process.env.HOSTED_DATABASE.replace(
 
 mongoose.connect(database).then(() => console.log('DB connection successful!'))
 const app = server.listen(port, () => {
-  console.log(`listen on port ${port}...`)
+  console.log(`listen on port localhost:${port}`)
 })
 
 process.on('unhandledRejection', (error: Error) => {

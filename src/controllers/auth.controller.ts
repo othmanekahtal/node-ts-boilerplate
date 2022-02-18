@@ -1,11 +1,20 @@
-import {Types} from 'mongoose'
 import {Response, Request, NextFunction, CookieOptions} from 'express'
 import AsyncCatch from '@utils/asyncCatch'
-import userModel from '@models/userModel'
-import jwt, {JwtPayload} from 'jsonwebtoken'
 import ErrorHandler from '@utils/errorHandler'
 import mail from '@utils/SendEmail'
 import crypto from 'crypto'
+import jwt, {JwtPayload} from 'jsonwebtoken'
+import {UserBaseDocument} from '@entities/UserBaseDocument.entity'
+import {Types} from 'mongoose'
+import {
+  findUser,
+  createUser,
+  validatePassword,
+  findUserById,
+  generatePasswordResetToken,
+  saveUser,
+} from '@services/index.service'
+import asyncCatch from '@utils/asyncCatch'
 const generateToken = (id: Types.ObjectId) =>
   jwt.sign({id}, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE,
@@ -14,10 +23,9 @@ const sendTokenResponse = ({
   response,
   user,
   statusCode,
-}: // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-{
-  response: Response // @ts-ignore
-  user: Document<unknown, any, User> & User & {_id: Types.ObjectId}
+}: {
+  response: Response
+  user: UserBaseDocument
   statusCode: number
 }) => {
   user.password = undefined
@@ -33,7 +41,7 @@ const sendTokenResponse = ({
   response.cookie('jwt', token, cookieOptions)
   return response.status(statusCode).json({
     status: 'success',
-    token,
+    // token,
     user,
   })
 }
@@ -47,20 +55,22 @@ export const login = AsyncCatch(
           statusCode: 400,
         }),
       )
-    const response = await userModel.findOne({email})?.select('+password')
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const passwordsMatch = await response?.correctPassword({
-      candidatePassword: response.password,
+    const response: UserBaseDocument | null = await findUser({email})
+    if (!response)
+      return next(
+        new ErrorHandler({
+          message: 'password or email is not correct',
+          statusCode: 401,
+        }),
+      )
+    const passwordsMatch = await validatePassword({
+      document: response,
       userPassword: password,
     })
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    response &&
-      passwordsMatch &&
-      sendTokenResponse({response: res, user: response, statusCode: 200})
 
-    next(
+    passwordsMatch &&
+      sendTokenResponse({response: res, user: response, statusCode: 200})
+    return next(
       new ErrorHandler({
         message: 'password or email is not correct',
         statusCode: 401,
@@ -72,54 +82,44 @@ export const login = AsyncCatch(
 export const signup = AsyncCatch(async (req: Request, res: Response) => {
   const user = req.body
   user.role = undefined
-  const response = await userModel.create(user)
+  const response = await createUser(user)
   sendTokenResponse({response: res, user: response, statusCode: 201})
 })
 
-export const protect = AsyncCatch(
-  async (req: Request, res: Response, next: NextFunction) => {
-    /// we need to verify tree layer : token,verification token,check if user is exists ,check if user change password after the token was issued
-    let token
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
-    ) {
-      token = req.headers.authorization.split(' ').at(-1)
-    }
-    if (!token) {
-      next(
-        new ErrorHandler({message: "You're not authorized !", statusCode: 401}),
-      )
-    }
-    const decodedToken: JwtPayload = jwt.verify(
-      token as string,
-      process.env.JWT_SECRET,
-    ) as JwtPayload
-    const userFresh = await userModel.findById(decodedToken.id)
-    if (!userFresh)
-      next(
-        new ErrorHandler({
-          message: 'The user belonging to this token does no longer exist.',
-          statusCode: 401,
-        }),
-      )
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    if (!userFresh.changedAfter({date: decodedToken.iat})) {
-      next(
-        new ErrorHandler({
-          message: 'You changed password , you need to login again!',
-          statusCode: 401,
-        }),
-      )
-    }
-    req.body.user = userFresh
-    next()
-  },
-)
+export const protect = AsyncCatch(async (req: Request, next: NextFunction) => {
+  let token: string | undefined
+  token = req.cookies['jwt']
+  !token &&
+    next(
+      new ErrorHandler({message: "You're not authorized !", statusCode: 401}),
+    )
+  const decodedToken: JwtPayload = jwt.verify(
+    token as string,
+    process.env.JWT_SECRET,
+  ) as JwtPayload
+  const userFresh: UserBaseDocument | null = await findUserById(decodedToken.id)
+  if (!userFresh)
+    return next(
+      new ErrorHandler({
+        message: 'The user belonging to this token does no longer exist.',
+        statusCode: 401,
+      }),
+    )
+
+  !userFresh.changedAfter({date: decodedToken.iat}) &&
+    next(
+      new ErrorHandler({
+        message: 'You changed password , you need to login again!',
+        statusCode: 401,
+      }),
+    )
+
+  req.body.user = userFresh
+  next()
+})
 export const onlyFor =
   (...roles: Array<string | any>) =>
-  (req: Request, res: Response, next: NextFunction) => {
+  (req: Request, next: NextFunction) => {
     if (!roles.includes(req.body.user.role)) {
       return next(
         new ErrorHandler({
@@ -132,9 +132,9 @@ export const onlyFor =
   }
 export const forgotPassword = AsyncCatch(
   async (req: Request, res: Response, next: NextFunction) => {
-    // 1- get user based on POSTed email
+    // 1- get user based on email
     const email = req.body.email
-    const user = await userModel.findOne({email})
+    const user = await findUser({email})
     if (!user)
       return next(
         new ErrorHandler({
@@ -143,10 +143,8 @@ export const forgotPassword = AsyncCatch(
         }),
       )
     // 2-generate the random reset token
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const resetToken = user.createPasswordResetToken()
-    await user.save({validateBeforeSave: false})
+    const resetToken = await generatePasswordResetToken(user)
+    await saveUser(user, {validateBeforeSave: false})
     const resetURL = `${req.protocol}://${req.get(
       'host',
     )}/api/v1/reset-password/${resetToken}`
@@ -161,7 +159,7 @@ export const forgotPassword = AsyncCatch(
       res.status(200).json({status: 'success', message: 'check your email'})
     } catch (error) {
       user.resetTokenExpiration = user.resetToken = undefined
-      await user.save({validateBeforeSave: false})
+      await saveUser(user, {validateBeforeSave: false})
       return next(
         new ErrorHandler({
           message: 'email not send try later!',
@@ -187,30 +185,28 @@ export const resetPassword = AsyncCatch(
       .createHash('sha256')
       .update(token)
       .digest('hex')
-    console.log(encryptedToken)
-    const user = await userModel.findOne({
+    const user = await findUser({
       resetToken: encryptedToken,
       resetTokenExpiration: {$gt: Date.now()},
     })
     if (!user) {
-      next(
+      return next(
         new ErrorHandler({
           message: 'token is invalid or expired',
           statusCode: 400,
         }),
       )
     }
-    user!.resetToken = user!.resetTokenExpiration = undefined
-    user!.updatePasswordAt = new Date(Date.now())
-    user!.password = password
-    user!.confirmPassword = confirmPassword
-    await user!.save()
+    user.resetToken = user.resetTokenExpiration = undefined
+    user.updatePasswordAt = new Date(Date.now())
+    user.password = password
+    user.confirmPassword = confirmPassword
+    await saveUser(user)
     sendTokenResponse({response: res, user: user, statusCode: 200})
   },
 )
 export const updatePassword = AsyncCatch(
   async (req: Request, res: Response, next: NextFunction) => {
-    console.log(req.body)
     const {
       body: {
         password,
@@ -219,14 +215,20 @@ export const updatePassword = AsyncCatch(
         user: {id},
       },
     } = req
-    const user = await userModel.findById(id).select('+password')
-
+    if (!password || !confirmPassword || !passwordCurrent)
+      return next(
+        new ErrorHandler({
+          message:
+            'please send necessary fields (password ,confimation of password,new password).',
+          statusCode: 401,
+        }),
+      )
+    const user = await findUserById(id)
+    console.log(user)
     if (
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
       !(await user!.correctPassword({
-        candidatePassword: user!.password,
-        userPassword: passwordCurrent,
+        candidatePassword: passwordCurrent,
+        userPassword: user!.password!,
       }))
     ) {
       return next(
@@ -239,7 +241,13 @@ export const updatePassword = AsyncCatch(
     user!.updatePasswordAt = new Date(Date.now())
     user!.password = password
     user!.confirmPassword = confirmPassword
-    await user!.save()
-    sendTokenResponse({response: res, user: user, statusCode: 200})
+    await saveUser(user!)
+    sendTokenResponse({response: res, user: user!, statusCode: 200})
+  },
+)
+export const logout = asyncCatch(
+  async (_: Request, res: Response, __: NextFunction) => {
+    res.cookie('jwt', '', {maxAge: 0})
+    res.status(204).json({})
   },
 )

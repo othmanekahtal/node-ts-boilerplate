@@ -1,4 +1,4 @@
-interface ErrorHttp {
+export interface ErrorHttpDefinition {
   [x: string]: any
   message: string
   statusCode: number

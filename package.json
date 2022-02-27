@@ -44,7 +44,7 @@
     "check-lint": "eslint . --ext ts --ext tsx --ext js",
     "prettier-write": "prettier --write .",
     "check-format": "prettier --check .",
-    "test": "yarn jest && yarn run prettier-write && yarn run check-format && yarn run check-lint && yarn run check-types ",
+    "test": "jest",
     "build": "tsc --project tsconfig.json",
     "production": "yarn build && yarn start"
   },

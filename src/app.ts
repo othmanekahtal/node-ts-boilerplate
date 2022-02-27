@@ -1,4 +1,3 @@
-import 'module-alias/register'
 import dotenv from 'dotenv'
 import mongoose from 'mongoose'
 import server from './server'

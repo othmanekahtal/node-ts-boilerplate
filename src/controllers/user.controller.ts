@@ -15,9 +15,9 @@ const filterObj = (obj: {[x: string]: string}, ...allowedFields: string[]) => {
   return newObj
 }
 
-export const getAllUsers = AsyncCatch(async (res: Response) => {
+export const getAllUsers = AsyncCatch(async (_: Request, res: Response) => {
   const users = await getAllUser({})
-
+  console.log(users)
   // SEND RESPONSE
   res.status(200).json({
     status: 'success',

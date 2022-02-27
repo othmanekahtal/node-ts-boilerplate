@@ -5,11 +5,13 @@ import {
   forgotPassword,
   updatePassword,
   resetPassword,
+  getAllUsers,
   logout,
 } from '@controllers/index.controller'
 import express from 'express'
 const router = express.Router()
 router.route('/signup').post(signup)
+router.route('/getall').get(getAllUsers)
 router.route('/login').post(login)
 router.route('/forget-password').post(forgotPassword)
 // we use patch because we need to change some fields

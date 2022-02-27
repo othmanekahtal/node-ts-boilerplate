@@ -1,16 +1,14 @@
 import {UserBaseDocument} from '@entities/UserBaseDocument.entity'
 import userModel from '@models/userModel'
-import {QueryOptions, Types} from 'mongoose'
+import {QueryOptions, UpdateQuery, Types} from 'mongoose'
+import {find, findbyIdAndUpdate, findOne} from './providers/mongoose.service'
+export const getAllUser = async ({...options}) =>
+  await find<UserBaseDocument>(userModel, options)
 
-export const getAllUser = async ({
-  ...options
-}): Promise<UserBaseDocument[] | null> => await userModel.find(options)
-export const getSPecificUser = async ({
-  ...options
-}): Promise<UserBaseDocument | null> => await userModel.findOne(options)
+export const getSPecificUser = async ({...options}) =>
+  await findOne<UserBaseDocument>(userModel, options)
 export const updateUser = async (
   id: Types.ObjectId,
-  fields: {[x: string]: any},
+  fields: UpdateQuery<UserBaseDocument>,
   options?: QueryOptions,
-): Promise<UserBaseDocument | null> =>
-  await userModel.findByIdAndUpdate(id, fields, options)
+) => await findbyIdAndUpdate<UserBaseDocument>(userModel, id, fields, options)

@@ -3,12 +3,14 @@ import userModel from '@models/userModel'
 import {ValidatePasswordParamDefinition} from '@interfaces/ValidatePasswordParamDefinition'
 import {ValidatePasswordChangedAfterTokenDefinition} from '@interfaces/ValidatePasswordChangedAfterTokenDefinition'
 import {QueryOptions} from 'mongoose'
+import {create, save} from './providers/mongoose.service'
 
-export const createUser = async (user: User): Promise<UserBaseDocument> =>
-  await userModel.create(user)
+export const createUser = async (user: User) =>
+  await create<UserBaseDocument>(userModel, user)
 
-export const findUser = async ({...fields}): Promise<UserBaseDocument | null> =>
+export const findUser = async ({...fields}) =>
   await userModel.findOne(fields)?.select('+password')
+// await findOne<UserBaseDocument>(userModel, fields)?.select('+password')
 
 export const validatePassword = async ({
   document,
@@ -37,4 +39,4 @@ export const generatePasswordResetToken = (
 export const saveUser = async (
   document: UserBaseDocument,
   options?: QueryOptions,
-): Promise<UserBaseDocument> => await document.save(options)
+) => await save<UserBaseDocument>(document, options)

@@ -8,7 +8,7 @@ import hpp from 'hpp'
 const server = express()
 import {authRoute} from '@routes/index.route'
 import errorHandler from '@utils/errorHandler'
-import {ErrorExceptionService} from '@services/index.service'
+import {ErrorException} from '@controllers/index.controller'
 import cookieParser from 'cookie-parser'
 
 // if cycle not finished yet At this moment , we have a router that handled in the previous middlewares
@@ -74,7 +74,7 @@ server.all('*', (req: Request, _: Response, next: NextFunction) =>
 /*
 we create a central middleware for handle all errors
  */
-server.use(ErrorExceptionService)
+server.use(ErrorException)
 /**
  * if we pass any parameter to next() function automatically express will know that was an error
  * when we pass param to next() express skip all middlewares in stack to the error handler
